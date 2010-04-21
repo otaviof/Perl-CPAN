@@ -6,18 +6,18 @@ use Parse::CPAN::Ratings::Rating;
 use Parse::CSV;
 our $VERSION = '0.33';
 
-has 'filename' =>
-    ( is => 'ro', isa => 'Path::Class::File', required => 1, coerce => 1 );
+has 'filename' => (
+    is       => 'ro',
+    isa      => 'Path::Class::File',
+    required => 1,
+    coerce   => 1
+);
 
 has 'db' => (
     is         => 'ro',
     isa        => 'HashRef[Parse::CPAN::Ratings::Rating]',
     lazy_build => 1,
 );
-
-no Moose;
-
-__PACKAGE__->meta->make_immutable;
 
 sub _build_db {
     my $self     = shift;
@@ -28,16 +28,20 @@ sub _build_db {
         file   => $filename->stringify,
         fields => 'auto',
     );
+
     while ( my $rating = $parser->fetch ) {
+        next
+            if ( !$rating->{distribution}
+            or !$rating->{rating}
+            or !$rating->{review_count} );
         $db{ $rating->{distribution} } = Parse::CPAN::Ratings::Rating->new(
             distribution => $rating->{distribution},
             rating       => $rating->{rating},
             review_count => $rating->{review_count},
         );
     }
-    if ( $parser->errstr ) {
-        confess( "Error parsing CSV: " . $parser->errstr );
-    }
+    confess( "Error parsing CSV: " . $parser->errstr )
+        if ( $parser->errstr );
     return \%db;
 }
 
@@ -50,6 +54,10 @@ sub ratings {
     my $self = shift;
     return values %{ $self->db };
 }
+
+no Moose;
+
+__PACKAGE__->meta->make_immutable;
 
 __END__
 
